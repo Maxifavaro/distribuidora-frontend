@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import useStore from '../store';
 
 export default function Statistics() {
-  const { token, fetchTopProducts, fetchTopProviders, fetchTopClients, fetchClientProducts } = useStore();
+  const store = useStore();
+  const { token, fetchTopProducts, fetchTopProviders, fetchTopClients, fetchClientProducts } = store;
   const [topProducts, setTopProducts] = useState([]);
   const [topProviders, setTopProviders] = useState([]);
   const [topClients, setTopClients] = useState([]);
@@ -19,9 +20,9 @@ export default function Statistics() {
     setLoading(true);
     try {
       const [products, providers, clients] = await Promise.all([
-        fetchTopProducts(),
-        fetchTopProviders(),
-        fetchTopClients()
+        fetchTopProducts ? fetchTopProducts() : Promise.resolve([]),
+        fetchTopProviders ? fetchTopProviders() : Promise.resolve([]),
+        fetchTopClients ? fetchTopClients() : Promise.resolve([])
       ]);
       setTopProducts(products || []);
       setTopProviders(providers || []);

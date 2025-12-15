@@ -1,7 +1,25 @@
 import create from 'zustand';
+import axios from 'axios';
 
 const API_BASE = process.env.REACT_APP_API_BASE || '';
 // When empty, requests are relative and CRA's proxy will forward them to the backend
+
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: API_BASE,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add request interceptor to include token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 const useStore = create((set, get) => ({
   token: localStorage.getItem('token') || null,
@@ -18,22 +36,23 @@ const useStore = create((set, get) => ({
   fetchProviders: async () => {
     set({ loading: true, error: null });
     try {
-      const headers = { ...(get().token ? { Authorization: `Bearer ${get().token}` } : {}) };
-      const res = await fetch(`${API_BASE}/providers`, { headers });
-      const data = await res.json();
+      const { data } = await api.get('/providers');
       set({ providers: data, loading: false });
-    } catch (err) { set({ error: err.message, loading: false }); }
+    } catch (err) { 
+      set({ error: err.response?.data?.error || err.message, loading: false }); 
+    }
   },
 
   createProvider: async (payload) => {
     set({ loading: true, error: null });
     try {
-      const headers = { 'Content-Type': 'application/json', ...(get().token ? { Authorization: `Bearer ${get().token}` } : {}) };
-      const res = await fetch(`${API_BASE}/providers`, { method: 'POST', headers, body: JSON.stringify(payload) });
-      const data = await res.json();
+      const { data } = await api.post('/providers', payload);
       set((state) => ({ providers: [...state.providers, data], loading: false }));
       return data;
-    } catch (err) { set({ error: err.message, loading: false }); throw err; }
+    } catch (err) { 
+      set({ error: err.response?.data?.error || err.message, loading: false }); 
+      throw err; 
+    }
   },
 
   fetchClients: async () => {
@@ -320,6 +339,69 @@ const useStore = create((set, get) => ({
       console.error('Error fetching client products:', err);
       return [];
     }
+  },
+
+  // Rubros
+  rubros: [],
+
+  fetchRubros: async () => {
+    set({ loading: true, error: null });
+    try {
+      const headers = { ...(get().token ? { Authorization: `Bearer ${get().token}` } : {}) };
+      const res = await fetch(`${API_BASE}/rubros`, { headers });
+      if (!res.ok) {
+        throw new Error('Failed to fetch rubros');
+      }
+      const data = await res.json();
+      set({ rubros: Array.isArray(data) ? data : [], loading: false });
+    } catch (err) { 
+      set({ error: err.message, rubros: [], loading: false }); 
+    }
+  },
+
+  createRubro: async (payload) => {
+    set({ loading: true, error: null });
+    try {
+      const headers = { 'Content-Type': 'application/json', ...(get().token ? { Authorization: `Bearer ${get().token}` } : {}) };
+      const res = await fetch(`${API_BASE}/rubros`, { method: 'POST', headers, body: JSON.stringify(payload) });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: 'Failed to create' }));
+        throw new Error(errData.error || errData.message || 'Failed to create rubro');
+      }
+      const data = await res.json();
+      // Refresh the list to ensure proper formatting
+      await get().fetchRubros();
+      return data;
+    } catch (err) { set({ error: err.message, loading: false }); throw err; }
+  },
+
+  updateRubro: async (id, payload) => {
+    set({ loading: true, error: null });
+    try {
+      const headers = { 'Content-Type': 'application/json', ...(get().token ? { Authorization: `Bearer ${get().token}` } : {}) };
+      const res = await fetch(`${API_BASE}/rubros/${id}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: 'Failed to update' }));
+        throw new Error(errData.error || errData.message || 'Failed to update rubro');
+      }
+      const data = await res.json();
+      // Refresh the list to ensure proper formatting
+      await get().fetchRubros();
+      return data;
+    } catch (err) { set({ error: err.message, loading: false }); throw err; }
+  },
+
+  deleteRubro: async (id) => {
+    set({ loading: true, error: null });
+    try {
+      const headers = { ...(get().token ? { Authorization: `Bearer ${get().token}` } : {}) };
+      const res = await fetch(`${API_BASE}/rubros/${id}`, { method: 'DELETE', headers });
+      if (res.ok) {
+        set((state) => ({ rubros: state.rubros.filter(r => r.id_rubro !== id), loading: false }));
+        return true;
+      }
+      throw new Error('Failed to delete');
+    } catch (err) { set({ error: err.message, loading: false }); throw err; }
   }
 }));
 

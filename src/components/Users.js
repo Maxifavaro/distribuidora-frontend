@@ -3,25 +3,28 @@ import useStore from '../store';
 import Swal from 'sweetalert2';
 
 export default function Users() {
-  const { users, fetchUsers, createUser, updateUser, deleteUser, permission } = useStore();
+  const store = useStore();
+  const { users = [], fetchUsers, createUser, updateUser, deleteUser, permission } = store;
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (permission === 'admin') {
+    if (permission === 'admin' && fetchUsers) {
       setLoading(true);
       fetchUsers().finally(() => setLoading(false));
     }
   }, []);
 
   useEffect(() => {
-    if (Array.isArray(users)) {
+    if (Array.isArray(users) && users.length > 0) {
       const filtered = users.filter(u =>
         u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.permission.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredUsers(filtered);
+    } else {
+      setFilteredUsers([]);
     }
   }, [users, searchTerm]);
 
