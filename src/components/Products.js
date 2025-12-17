@@ -1,51 +1,123 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import useStore from '../store';
 import Swal from 'sweetalert2';
 
 export default function Products() {
   const store = useStore();
-  const { products = [], providers = [], rubros = [], fetchProducts, fetchProviders, fetchRubros, createProduct, updateProduct, deleteProduct, loading, permission } = store;
+  const { products = [], providers = [], rubros = [], marcas = [], fetchProducts, fetchProviders, fetchRubros, fetchMarcas, createProduct, updateProduct, deleteProduct, loading, permission } = store;
   const [form, setForm] = useState({ 
     name: '', 
     sku: '', 
     price: '', 
     stock: '', 
     provider_id: '', 
-    rubro_id: '1',
+    rubro_id: '',
+    marca_id: '',
+    alicuota_id: '',
     costo: '0',
-    margen: '0'
+    costoUnit: '0',
+    margen: '0',
+    precioFinalPack: '0',
+    precioNetoPack: '0',
+    precioNetoUni: '0',
+    montoIVA: '0',
+    pmr: '1',
+    pack: 'UN',
+    uniXPack: '1',
+    estado: 'Activo',
+    permite_descuento: true
   });
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [loadingMarcas, setLoadingMarcas] = useState(false);
 
   useEffect(() => { 
     if (fetchProducts) fetchProducts(); 
     if (fetchProviders) fetchProviders();
     if (fetchRubros) fetchRubros();
+    if (fetchMarcas) fetchMarcas();
   }, []);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const startEdit = (product) => {
+  const handleRubroChange = async (e) => {
+    const newRubroId = e.target.value;
+    setForm({ ...form, rubro_id: newRubroId, marca_id: '' }); // Resetear marca
+    
+    if (!newRubroId) {
+      // Si no hay rubro seleccionado, cargar todas las marcas
+      if (fetchMarcas) fetchMarcas();
+      return;
+    }
+    
+    setLoadingMarcas(true);
+    try {
+      await fetchMarcas(parseInt(newRubroId, 10)); // Cargar marcas del rubro
+    } catch (err) {
+      console.error('Error loading marcas:', err);
+    } finally {
+      setLoadingMarcas(false);
+    }
+  };
+
+  const startEdit = async (product) => {
     setEditingId(product.id);
+    setShowForm(true);
+    
+    const rubroId = product.rubro_id ? String(product.rubro_id) : '';
+    
+    // Cargar marcas del rubro del producto
+    if (rubroId && fetchMarcas) {
+      setLoadingMarcas(true);
+      try {
+        await fetchMarcas(parseInt(rubroId, 10));
+      } catch (err) {
+        console.error('Error loading marcas for edit:', err);
+      } finally {
+        setLoadingMarcas(false);
+      }
+    } else if (fetchMarcas) {
+      setLoadingMarcas(true);
+      try {
+        await fetchMarcas(); // Cargar todas las marcas
+      } catch (err) {
+        console.error('Error loading all marcas:', err);
+      } finally {
+        setLoadingMarcas(false);
+      }
+    }
+    
     setForm({ 
       name: product.name || '', 
       sku: product.sku || '', 
       price: product.price || '', 
       stock: product.stock || '', 
       provider_id: product.provider_id ? String(product.provider_id) : '',
-      rubro_id: product.rubro_id ? String(product.rubro_id) : '1',
-      costo: product.Costo || '0',
-      margen: product.margen || '0'
+      rubro_id: rubroId || '',
+      marca_id: product.marca_id ? String(product.marca_id) : '',
+      alicuota_id: product.alicuota_id ? String(product.alicuota_id) : '',
+      costo: product.Costo !== undefined ? String(product.Costo) : '0',
+      costoUnit: product.CostoUnit !== undefined ? String(product.CostoUnit) : '0',
+      margen: product.margen !== undefined ? String(product.margen) : '0',
+      precioFinalPack: product.PrecioFinalPack !== undefined ? String(product.PrecioFinalPack) : '0',
+      precioNetoPack: product.PrecioNetoPack !== undefined ? String(product.PrecioNetoPack) : '0',
+      precioNetoUni: product.PrecioNetoUni !== undefined ? String(product.PrecioNetoUni) : '0',
+      montoIVA: product.MontoIVA !== undefined ? String(product.MontoIVA) : '0',
+      pmr: product.PMR !== undefined ? String(product.PMR) : '1',
+      pack: product.Pr_Pack || 'UN',
+      uniXPack: product.Pr_UniXPack !== undefined ? String(product.Pr_UniXPack) : '1',
+      estado: product.Estado || 'Activo',
+      permite_descuento: product.permite_descuento !== undefined ? product.permite_descuento : true
     });
-    setShowForm(true);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setForm({ name: '', sku: '', price: '', stock: '', provider_id: '', rubro_id: '1', costo: '0', margen: '0' });
+    setForm({ name: '', sku: '', price: '', stock: '', provider_id: '', rubro_id: '', marca_id: '', alicuota_id: '', costo: '0', costoUnit: '0', margen: '0', precioFinalPack: '0', precioNetoPack: '0', precioNetoUni: '0', montoIVA: '0', pmr: '1', pack: 'UN', uniXPack: '1', estado: 'Activo', permite_descuento: true });
     setShowForm(false);
+    // Recargar todas las marcas al cancelar
+    if (fetchMarcas) fetchMarcas();
   };
 
   const handleSubmit = async (e) => {
@@ -57,18 +129,21 @@ export default function Products() {
         price: parseFloat(form.price) || 0, 
         stock: parseInt(form.stock, 10) || 0, 
         provider_id: form.provider_id ? parseInt(form.provider_id, 10) : null,
-        rubro_id: parseInt(form.rubro_id, 10) || 1,
+        rubro_id: form.rubro_id ? parseInt(form.rubro_id, 10) : null,
+        marca_id: form.marca_id ? parseInt(form.marca_id, 10) : null,
+        alicuota_id: form.alicuota_id ? parseInt(form.alicuota_id, 10) : null,
         costo: parseFloat(form.costo) || 0,
-        costoUnit: parseFloat(form.costo) || 0,
+        costoUnit: parseFloat(form.costoUnit) || 0,
         margen: parseFloat(form.margen) || 0,
-        precioFinalPack: parseFloat(form.price) || 0,
-        precioNetoPack: parseFloat(form.price) || 0,
-        precioNetoUni: parseFloat(form.price) || 0,
-        montoIVA: (parseFloat(form.price) || 0) * 0.21,
-        pmr: 1,
-        pack: 'UN',
-        uniXPack: 1,
-        estado: 'Activo'
+        precioFinalPack: parseFloat(form.precioFinalPack) || 0,
+        precioNetoPack: parseFloat(form.precioNetoPack) || 0,
+        precioNetoUni: parseFloat(form.precioNetoUni) || 0,
+        montoIVA: parseFloat(form.montoIVA) || 0,
+        pmr: parseInt(form.pmr, 10) || 1,
+        pack: form.pack || 'UN',
+        uniXPack: parseInt(form.uniXPack, 10) || 1,
+        estado: form.estado || 'Activo',
+        permite_descuento: form.permite_descuento
       };
       
       if (editingId) {
@@ -77,7 +152,9 @@ export default function Products() {
         cancelEdit();
       } else {
         const data = await createProduct(payload);
-        setForm({ name: '', sku: '', price: '', stock: '', provider_id: '', rubro_id: '1', costo: '0', margen: '0' });
+        setForm({ name: '', sku: '', price: '', stock: '', provider_id: '', rubro_id: '', marca_id: '', alicuota_id: '', costo: '0', costoUnit: '0', margen: '0', precioFinalPack: '0', precioNetoPack: '0', precioNetoUni: '0', montoIVA: '0', pmr: '1', pack: 'UN', uniXPack: '1', estado: 'Activo', permite_descuento: true });
+        // Recargar todas las marcas después de crear
+        if (fetchMarcas) fetchMarcas();
         Swal.fire('Creado', `Producto creado`, 'success');
       }
     } catch (err) {
@@ -110,9 +187,12 @@ export default function Products() {
     <div>
       <h4>Productos</h4>
 
-      <div className="mb-3 d-flex align-items-center">
-        <input className="form-control me-2" placeholder="Buscar por ID, nombre o SKU" value={search} onChange={(e) => setSearch(e.target.value)} />
-        {permission === 'admin' && !editingId && (
+      <div className="mb-3">
+        <input className="form-control" placeholder="Buscar por ID, nombre o SKU" value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+      
+      {permission === 'admin' && !editingId && (
+        <div className="mb-3 d-flex align-items-center">
           <div className="form-check form-switch">
             <input 
               className="form-check-input" 
@@ -122,56 +202,157 @@ export default function Products() {
               onChange={(e) => setShowForm(e.target.checked)}
               style={{ width: '48px', height: '24px', cursor: 'pointer' }}
             />
+            <label className="form-check-label ms-2" htmlFor="toggleForm" style={{ cursor: 'pointer', fontWeight: '500' }}>
+              Nuevo producto
+            </label>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="card mb-3">
           <div className="card-body">
             <h5 className="card-title">{editingId ? 'Modificar Producto' : 'Nuevo Producto'}</h5>
             <form onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label className="form-label">Nombre</label>
-                <input required name="name" value={form.name} onChange={handleChange} placeholder="Nombre" className="form-control" />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">SKU</label>
-                <input name="sku" value={form.sku} onChange={handleChange} placeholder="SKU" className="form-control" />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Precio</label>
-                <input name="price" value={form.price} onChange={handleChange} placeholder="Precio" className="form-control" type="number" step="0.01" />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Stock</label>
-                <input name="stock" value={form.stock} onChange={handleChange} placeholder="Stock" className="form-control" type="number" />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Proveedor</label>
-                <select name="provider_id" value={form.provider_id} onChange={handleChange} className="form-select" required>
-                  <option value="">Seleccionar Proveedor</option>
-                  {Array.isArray(providers) && providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Rubro</label>
-                <select name="rubro_id" value={form.rubro_id} onChange={handleChange} className="form-select">
-                  <option value="1">General</option>
-                  {Array.isArray(rubros) && rubros.map(r => <option key={r.id_rubro} value={r.id_rubro}>{r.descripcion}</option>)}
-                </select>
-              </div>
+              {/* Fila 1: Datos básicos */}
               <div className="row">
-                <div className="col-md-6 mb-3">
-                  <label className="form-label">Costo</label>
-                  <input name="costo" value={form.costo} onChange={handleChange} placeholder="Costo" className="form-control" type="number" step="0.01" />
+                <div className="col-md-4 mb-2">
+                  <label className="form-label">Nombre *</label>
+                  <input required name="name" value={form.name} onChange={handleChange} placeholder="Nombre" className="form-control" />
                 </div>
-                <div className="col-md-6 mb-3">
-                  <label className="form-label">Margen (%)</label>
-                  <input name="margen" value={form.margen} onChange={handleChange} placeholder="Margen" className="form-control" type="number" step="0.01" />
+                <div className="col-md-2 mb-2">
+                  <label className="form-label">SKU</label>
+                  <input name="sku" value={form.sku} onChange={handleChange} placeholder="SKU" className="form-control" />
+                </div>
+                <div className="col-md-2 mb-2">
+                  <label className="form-label">Stock</label>
+                  <input name="stock" value={form.stock} onChange={handleChange} placeholder="Stock" className="form-control" type="number" />
+                </div>
+                <div className="col-md-2 mb-2">
+                  <label className="form-label">Pack</label>
+                  <input name="pack" value={form.pack} onChange={handleChange} placeholder="UN" className="form-control" />
+                </div>
+                <div className="col-md-2 mb-2">
+                  <label className="form-label">Uni x Pack</label>
+                  <input name="uniXPack" value={form.uniXPack} onChange={handleChange} placeholder="1" className="form-control" type="number" />
                 </div>
               </div>
-              <div className="d-flex gap-2">
+              
+              {/* Fila 2: Precios */}
+              <div className="row">
+                <div className="col-md-3 mb-2">
+                  <label className="form-label">Precio Final Uni *</label>
+                  <input required name="price" value={form.price} onChange={handleChange} placeholder="0.00" className="form-control" type="number" step="0.01" />
+                </div>
+                <div className="col-md-3 mb-2">
+                  <label className="form-label">Precio Final Pack</label>
+                  <input name="precioFinalPack" value={form.precioFinalPack} onChange={handleChange} placeholder="0.00" className="form-control" type="number" step="0.01" />
+                </div>
+                <div className="col-md-3 mb-2">
+                  <label className="form-label">Precio Neto Pack</label>
+                  <input name="precioNetoPack" value={form.precioNetoPack} onChange={handleChange} placeholder="0.00" className="form-control" type="number" step="0.01" />
+                </div>
+                <div className="col-md-3 mb-2">
+                  <label className="form-label">Precio Neto Uni</label>
+                  <input name="precioNetoUni" value={form.precioNetoUni} onChange={handleChange} placeholder="0.00" className="form-control" type="number" step="0.01" />
+                </div>
+              </div>
+
+              {/* Fila 3: Costos */}
+              <div className="row">
+                <div className="col-md-3 mb-2">
+                  <label className="form-label">Costo</label>
+                  <input name="costo" value={form.costo} onChange={handleChange} placeholder="0.00" className="form-control" type="number" step="0.01" />
+                </div>
+                <div className="col-md-3 mb-2">
+                  <label className="form-label">Costo Unit</label>
+                  <input name="costoUnit" value={form.costoUnit} onChange={handleChange} placeholder="0.00" className="form-control" type="number" step="0.01" />
+                </div>
+                <div className="col-md-2 mb-2">
+                  <label className="form-label">Margen (%)</label>
+                  <input name="margen" value={form.margen} onChange={handleChange} placeholder="0" className="form-control" type="number" step="0.01" />
+                </div>
+                <div className="col-md-2 mb-2">
+                  <label className="form-label">Monto IVA</label>
+                  <input name="montoIVA" value={form.montoIVA} onChange={handleChange} placeholder="0.00" className="form-control" type="number" step="0.01" />
+                </div>
+                <div className="col-md-2 mb-2">
+                  <label className="form-label">PMR</label>
+                  <input name="pmr" value={form.pmr} onChange={handleChange} placeholder="1" className="form-control" type="number" />
+                </div>
+              </div>
+              
+              {/* Fila 4: Relaciones */}
+              <div className="row">
+                <div className="col-md-4 mb-2">
+                  <label className="form-label">Proveedor *</label>
+                  <select name="provider_id" value={form.provider_id} onChange={handleChange} className="form-select" required>
+                    <option value="">Seleccionar Proveedor</option>
+                    {Array.isArray(providers) && providers.map(p => <option key={p.id} value={p.id}>{p.razon_social || p.name}</option>)}
+                  </select>
+                </div>
+                <div className="col-md-3 mb-2">
+                  <label className="form-label">Rubro *</label>
+                  <select name="rubro_id" value={form.rubro_id} onChange={handleRubroChange} className="form-select" required>
+                    <option value="">Seleccionar Rubro</option>
+                    {Array.isArray(rubros) && rubros.map(r => <option key={r.id_rubro} value={r.id_rubro}>{r.descripcion}</option>)}
+                  </select>
+                </div>
+                <div className="col-md-3 mb-2">
+                  <label className="form-label">Marca</label>
+                  <select name="marca_id" value={form.marca_id} onChange={handleChange} className="form-select" disabled={loadingMarcas}>
+                    <option value="">{loadingMarcas ? 'Cargando...' : 'Sin marca'}</option>
+                    {Array.isArray(marcas) && marcas.map(m => <option key={m.id_marca} value={m.id_marca}>{m.descripcion}</option>)}
+                  </select>
+                </div>
+                <div className="col-md-2 mb-2">
+                  <label className="form-label">Alicuota IVA</label>
+                  <select name="alicuota_id" value={form.alicuota_id} onChange={handleChange} className="form-select">
+                    <option value="">Sin alicuota</option>
+                    <option value="1">21%</option>
+                    <option value="2">10.5%</option>
+                    <option value="3">27%</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Fila 5: Estado y descuento */}
+              <div className="row">
+                <div className="col-md-3 mb-2">
+                  <label className="form-label">Estado</label>
+                  <select name="estado" value={form.estado} onChange={handleChange} className="form-select">
+                    <option value="Activo">Activo</option>
+                    <option value="Inactivo">Inactivo</option>
+                  </select>
+                </div>
+                <div className="col-md-3 mb-2">
+                  <label className="form-label d-block">¿Permite descuentos?</label>
+                  <div className="form-check form-check-inline">
+                    <input 
+                      className="form-check-input" 
+                      type="radio" 
+                      name="permite_descuento" 
+                      id="descuento_si" 
+                      checked={form.permite_descuento === true}
+                      onChange={() => setForm({...form, permite_descuento: true})}
+                    />
+                    <label className="form-check-label" htmlFor="descuento_si">Sí</label>
+                  </div>
+                  <div className="form-check form-check-inline">
+                    <input 
+                      className="form-check-input" 
+                      type="radio" 
+                      name="permite_descuento" 
+                      id="descuento_no" 
+                      checked={form.permite_descuento === false}
+                      onChange={() => setForm({...form, permite_descuento: false})}
+                    />
+                    <label className="form-check-label" htmlFor="descuento_no">No</label>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="d-flex gap-2 mt-3">
                 <button className="btn btn-primary" disabled={loading} type="submit">Confirmar</button>
                 <button className="btn btn-secondary" type="button" onClick={cancelEdit}>Cancelar</button>
               </div>

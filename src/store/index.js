@@ -8,6 +8,8 @@ import { usersSlice } from './users.store';
 import { rubrosSlice } from './rubros.store';
 import { statisticsSlice } from './statistics.store';
 import { catalogsSlice } from './catalogs.store';
+import { repartidoresSlice } from './repartidores.store';
+import { marcasSlice } from './marcas.store';
 
 const useStore = create((set, get) => ({
   // Global state
@@ -23,7 +25,9 @@ const useStore = create((set, get) => ({
   ...ordersSlice(set, get),
   ...usersSlice(set, get),
   ...rubrosSlice(set, get),
-  ...statisticsSlice(set, get)
+  ...statisticsSlice(set, get),
+  ...repartidoresSlice(set, get),
+  ...marcasSlice(set, get)
 }));
 
 export default useStore;

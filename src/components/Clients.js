@@ -135,15 +135,15 @@ export default function Clients() {
               <div className="row">
                 <div className="col-md-4 mb-3">
                   <label className="form-label">Nombre *</label>
-                  <input required name="nombre" value={form.nombre} onChange={handleChange} className="form-control" />
+                  <input required name="nombre" value={form.nombre} onChange={handleChange} className="form-control" placeholder="Campo obligatorio" />
                 </div>
                 <div className="col-md-4 mb-3">
                   <label className="form-label">Apellido</label>
-                  <input name="apellido" value={form.apellido} onChange={handleChange} className="form-control" />
+                  <input name="apellido" value={form.apellido} onChange={handleChange} className="form-control" placeholder="Opcional" />
                 </div>
                 <div className="col-md-4 mb-3">
                   <label className="form-label">Razón Social</label>
-                  <input name="razon_social" value={form.razon_social} onChange={handleChange} className="form-control" />
+                  <input name="razon_social" value={form.razon_social} onChange={handleChange} className="form-control" placeholder="Opcional" />
                 </div>
               </div>
               <div className="row">

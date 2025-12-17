@@ -23,7 +23,9 @@ export default function TopNav({ active, onSelect }) {
                 <li><button className={`dropdown-item ${active === 'clients' ? 'active' : ''}`} onClick={() => onSelect('clients')}>👥 Clientes</button></li>
                 <li><button className={`dropdown-item ${active === 'products' ? 'active' : ''}`} onClick={() => onSelect('products')}>📦 Productos</button></li>
                 <li><button className={`dropdown-item ${active === 'rubros' ? 'active' : ''}`} onClick={() => onSelect('rubros')}>🏷️ Rubros</button></li>
+                <li><button className={`dropdown-item ${active === 'marcas' ? 'active' : ''}`} onClick={() => onSelect('marcas')}>🏭 Marcas</button></li>
                 <li><button className={`dropdown-item ${active === 'orders' ? 'active' : ''}`} onClick={() => onSelect('orders')}>📋 Pedidos</button></li>
+                <li><button className={`dropdown-item ${active === 'repartidores' ? 'active' : ''}`} onClick={() => onSelect('repartidores')}>🚚 Repartidores</button></li>
                 <li><button className={`dropdown-item ${active === 'statistics' ? 'active' : ''}`} onClick={() => onSelect('statistics')}>📊 Estadísticas</button></li>
                 {permission === 'admin' && (
                   <>

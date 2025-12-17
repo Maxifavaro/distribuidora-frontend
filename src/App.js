@@ -8,6 +8,8 @@ import Orders from './components/Orders';
 import Users from './components/Users';
 import Statistics from './components/Statistics';
 import Rubros from './components/Rubros';
+import Marcas from './components/Marcas';
+import Repartidores from './components/Repartidores';
 import Login from './components/Login';
 import useStore from './store';
 
@@ -36,9 +38,11 @@ export default function App() {
           {active === 'clients' && <Clients />}
           {active === 'products' && <Products />}
           {active === 'orders' && <Orders />}
+          {active === 'repartidores' && <Repartidores />}
           {active === 'users' && <Users />}
           {active === 'statistics' && <Statistics />}
           {active === 'rubros' && <Rubros />}
+          {active === 'marcas' && <Marcas />}
         </div>
       )}
     </div>
