@@ -10,6 +10,7 @@ import { statisticsSlice } from './statistics.store';
 import { catalogsSlice } from './catalogs.store';
 import { repartidoresSlice } from './repartidores.store';
 import { marcasSlice } from './marcas.store';
+import { systemStructureSlice } from './system-structure.store';
 
 const useStore = create((set, get) => ({
   // Global state
@@ -18,6 +19,7 @@ const useStore = create((set, get) => ({
 
   // Combine all slices
   ...authSlice(set, get),
+  ...systemStructureSlice(set, get),
   ...catalogsSlice(set, get),
   ...providersSlice(set, get),
   ...clientsSlice(set, get),

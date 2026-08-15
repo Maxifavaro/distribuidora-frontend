@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import useStore from '../store';
 import Swal from 'sweetalert2';
-import { usePDFGenerator } from './Orders/usePDFGenerator';
-import ClientSelector from './Orders/ClientSelector';
+import jsPDF from 'jspdf';
 
 // Agregar estilos para hover
 const styles = `
@@ -14,12 +13,12 @@ const styles = `
 export default function Orders() {
   const store = useStore();
   const { orders = [], fetchOrders, createOrder, fetchOrderDetails, products = [], clients = [], repartidores = [], rubros = [], marcas = [], fetchProducts, fetchClients, fetchRepartidores, fetchRubros, fetchMarcas, loading, permission } = store;
-  const { generatePDFBlob, downloadPDF } = usePDFGenerator();
 
   const [selected, setSelected] = useState(''); // client_id
   const [selectedClient, setSelectedClient] = useState(null); // objeto completo del cliente
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState('');
+  const [clientSearch, setClientSearch] = useState(''); // búsqueda de clientes
   const [showClientSelector, setShowClientSelector] = useState(false); // mostrar panel de selección
   const [deliveryType, setDeliveryType] = useState('deposito');
   const [deliveryDate, setDeliveryDate] = useState('');
@@ -244,7 +243,12 @@ export default function Orders() {
         confirmButtonColor: '#28a745'
       }).then((result) => {
         if (result.isConfirmed) {
-          downloadPDF(pdfBlob, o.id, o.client_name);
+          // Descargar el PDF
+          const link = document.createElement('a');
+          link.href = pdfUrl;
+          const dateStr = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 10);
+          link.download = `PEDIDO_${o.id}_${o.client_name?.replace(/\s+/g, '_')}_${dateStr}.pdf`;
+          link.click();
         }
         // Limpiar el objeto URL
         URL.revokeObjectURL(pdfUrl);
@@ -331,11 +335,222 @@ export default function Orders() {
     setExpandedOrder(orderId);
   };
 
+  const generatePDFBlob = async (o, data) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    // Título simple
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Pedido: ${String(o.id).padStart(6, '0')}`, pageWidth / 2, 20, { align: 'center' });
+    
+    // Línea separadora
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.line(15, 25, pageWidth - 15, 25);
+    
+    // Información del pedido en dos columnas
+    let yPos = 35;
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text('DATOS DEL CLIENTE', 15, yPos);
+    doc.text('DATOS DEL PEDIDO', 110, yPos);
+    
+    yPos += 8;
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(10);
+    
+    // Columna izquierda - Cliente
+    doc.setFont(undefined, 'bold');
+    doc.text('Cliente:', 15, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(o.client_name || 'N/A', 35, yPos);
+    
+    // Columna derecha - Fecha creación
+    doc.setFont(undefined, 'bold');
+    doc.text('Fecha Pedido:', 110, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(new Date(o.created_at).toLocaleDateString('es-AR'), 145, yPos);
+    
+    yPos += 7;
+    
+    // Dirección
+    if (o.client_direccion) {
+      doc.setFont(undefined, 'bold');
+      doc.text('Dirección:', 15, yPos);
+      doc.setFont(undefined, 'normal');
+      const direccion = o.client_direccion + (o.client_numero ? ' ' + o.client_numero : '');
+      doc.text(direccion, 35, yPos);
+    }
+    
+    // Tipo de entrega
+    doc.setFont(undefined, 'bold');
+    doc.text('Tipo Entrega:', 110, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(o.delivery_type || 'N/A', 145, yPos);
+    
+    yPos += 7;
+    
+    // Teléfono
+    if (o.client_telefono) {
+      doc.setFont(undefined, 'bold');
+      doc.text('Teléfono:', 15, yPos);
+      doc.setFont(undefined, 'normal');
+      doc.text(o.client_telefono, 35, yPos);
+    }
+    
+    yPos += 7;
+    
+    // Fecha de entrega
+    if (o.delivery_date) {
+      doc.setFont(undefined, 'bold');
+      doc.text('Fecha Entrega:', 110, yPos);
+      doc.setFont(undefined, 'normal');
+      doc.text(new Date(o.delivery_date).toLocaleDateString('es-AR'), 145, yPos);
+      yPos += 7;
+    }
+    
+    // Repartidor
+    if (o.repartidor_name) {
+      doc.setFont(undefined, 'bold');
+      doc.text('Repartidor:', 110, yPos);
+      doc.setFont(undefined, 'normal');
+      doc.text(o.repartidor_name, 145, yPos);
+      yPos += 7;
+    }
+    
+    // Estado
+    doc.setFont(undefined, 'bold');
+    doc.text('Estado:', 110, yPos);
+    doc.setFont(undefined, 'normal');
+    doc.text(o.status || 'Pendiente', 145, yPos);
+    
+    // Línea separadora
+    yPos += 8;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(15, yPos, pageWidth - 15, yPos);
+    
+    // Título de la tabla
+    yPos += 10;
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('DETALLE DE PRODUCTOS', 15, yPos);
+    
+    // Encabezado de tabla
+    yPos += 8;
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'bold');
+    
+    // Línea superior del encabezado
+    doc.setLineWidth(0.5);
+    doc.line(15, yPos - 2, pageWidth - 15, yPos - 2);
+    
+    doc.text('PRODUCTO', 17, yPos + 2);
+    doc.text('SKU', 110, yPos + 2);
+    doc.text('CANT.', 135, yPos + 2, { align: 'center' });
+    doc.text('PRECIO UNIT.', 160, yPos + 2, { align: 'right' });
+    doc.text('SUBTOTAL', pageWidth - 17, yPos + 2, { align: 'right' });
+    
+    // Línea inferior del encabezado
+    doc.line(15, yPos + 4, pageWidth - 15, yPos + 4);
+    
+    doc.setFont(undefined, 'normal');
+    
+    // Items de la tabla
+    yPos += 8;
+    let totalGeneral = 0;
+    let itemCount = 0;
+    
+    data.items.forEach((item, idx) => {
+      // Verificar si necesitamos nueva página
+      if (yPos > pageHeight - 40) {
+        doc.addPage();
+        yPos = 20;
+        
+        // Repetir encabezado en nueva página
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'bold');
+        
+        doc.setLineWidth(0.5);
+        doc.line(15, yPos - 2, pageWidth - 15, yPos - 2);
+        
+        doc.text('PRODUCTO', 17, yPos + 2);
+        doc.text('SKU', 110, yPos + 2);
+        doc.text('CANT.', 135, yPos + 2, { align: 'center' });
+        doc.text('PRECIO UNIT.', 160, yPos + 2, { align: 'right' });
+        doc.text('SUBTOTAL', pageWidth - 17, yPos + 2, { align: 'right' });
+        
+        doc.line(15, yPos + 4, pageWidth - 15, yPos + 4);
+        
+        doc.setFont(undefined, 'normal');
+        yPos += 8;
+      }
+      
+      const subtotal = item.quantity * item.unit_price;
+      totalGeneral += subtotal;
+      itemCount++;
+      
+      // Truncar nombre si es muy largo
+      const productName = item.name.length > 40 ? item.name.substring(0, 37) + '...' : item.name;
+      
+      doc.setFontSize(8);
+      doc.text(productName, 17, yPos);
+      doc.text(item.sku || 'N/A', 110, yPos);
+      doc.text(String(item.quantity), 135, yPos, { align: 'center' });
+      doc.text(`$ ${parseFloat(item.unit_price).toFixed(2)}`, 160, yPos, { align: 'right' });
+      doc.setFont(undefined, 'bold');
+      doc.text(`$ ${subtotal.toFixed(2)}`, pageWidth - 17, yPos, { align: 'right' });
+      doc.setFont(undefined, 'normal');
+      
+      yPos += 7;
+    });
+    
+    // Línea antes del total
+    yPos += 3;
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(0, 0, 0);
+    doc.line(15, yPos, pageWidth - 15, yPos);
+    
+    // Resumen final
+    yPos += 8;
+    doc.setFontSize(10);
+    doc.text(`Total de items: ${itemCount}`, 15, yPos);
+    
+    // Total
+    yPos += 2;
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('TOTAL:', pageWidth - 75, yPos + 2);
+    doc.text(`$ ${totalGeneral.toFixed(2)}`, pageWidth - 17, yPos + 2, { align: 'right' });
+    
+    // Pie de página
+    doc.setTextColor(150, 150, 150);
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Generado el ${new Date().toLocaleString('es-AR')}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    
+    return doc.output('blob');
+  };
+
   const exportToPDF = async (o) => {
     try {
       const data = await fetchOrderDetails(o.id);
       const pdfBlob = await generatePDFBlob(o, data);
-      downloadPDF(pdfBlob, o.id, o.client_name);
+      
+      // Crear link de descarga
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      const dateStr = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 10);
+      link.download = `PEDIDO_${o.id}_${o.client_name?.replace(/\s+/g, '_')}_${dateStr}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+      
       Swal.fire('Éxito', 'PDF generado correctamente', 'success');
     } catch (err) {
       Swal.fire('Error', err.message || 'Error al generar PDF', 'error');
@@ -376,30 +591,95 @@ export default function Orders() {
                     <button 
                       type="button" 
                       className="btn-close position-absolute top-50 end-0 translate-middle-y me-2" 
-                      onClick={(e) => { e.stopPropagation(); setSelectedClient(null); setSelected(''); }}
+                      onClick={(e) => { e.stopPropagation(); setSelectedClient(null); setSelected(''); setClientSearch(''); }}
                       style={{ fontSize: '0.7rem' }}
                     />
                   )}
                 </div>
                 
-                <ClientSelector
-                  clients={clients}
-                  show={showClientSelector}
-                  onSelectClient={(client) => {
-                    setSelectedClient(client);
-                    setSelected(client.id.toString());
-                  }}
-                  onClose={() => setShowClientSelector(false)}
-                />
+                {showClientSelector && (
+                  <div className="card position-absolute" style={{ zIndex: 1000, width: '600px', maxHeight: '400px', marginTop: '5px' }}>
+                    <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                      <span>Seleccionar Cliente</span>
+                      <button type="button" className="btn-close btn-close-white" onClick={() => setShowClientSelector(false)} />
+                    </div>
+                <div className="card-body p-2">
+                  <input 
+                    type="text" 
+                    className="form-control form-control-sm mb-2" 
+                    placeholder="Buscar por nombre, razón social, CUIT, dirección, teléfono..." 
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    autoFocus
+                  />
+                  <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                    {Array.isArray(clients) && clients
+                      .filter(c => {
+                        if (!clientSearch) return true;
+                        const searchLower = clientSearch.toLowerCase();
+                        return (
+                          (c.razon_social && c.razon_social.toLowerCase().includes(searchLower)) ||
+                          (c.nombre && c.nombre.toLowerCase().includes(searchLower)) ||
+                          (c.apellido && c.apellido.toLowerCase().includes(searchLower)) ||
+                          (c.cuit && c.cuit.toLowerCase().includes(searchLower)) ||
+                          (c.direccion && c.direccion.toLowerCase().includes(searchLower)) ||
+                          (c.telefono && c.telefono.toLowerCase().includes(searchLower)) ||
+                          (c.localidad_nombre && c.localidad_nombre.toLowerCase().includes(searchLower)) ||
+                          c.id.toString().includes(searchLower)
+                        );
+                      })
+                      .slice(0, 50)
+                      .map(c => (
+                        <div 
+                          key={c.id} 
+                          className="border-bottom p-2 hover-bg-light" 
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            setSelectedClient(c);
+                            setSelected(c.id.toString());
+                            setShowClientSelector(false);
+                            setClientSearch('');
+                          }}
+                        >
+                          <div className="d-flex justify-content-between">
+                            <strong className="text-primary">#{c.id} - {c.razon_social || `${c.nombre || ''} ${c.apellido || ''}`.trim() || 'Sin nombre'}</strong>
+                            <span className="badge bg-secondary">{c.estado || 'Activo'}</span>
+                          </div>
+                          <div className="small text-muted">
+                            {c.cuit && <span className="me-3"><i className="bi bi-card-text"></i> CUIT: {c.cuit}</span>}
+                            {c.telefono && <span className="me-3"><i className="bi bi-telephone"></i> {c.telefono}</span>}
+                          </div>
+                          <div className="small text-muted">
+                            {c.direccion && <span className="me-2"><i className="bi bi-geo-alt"></i> {c.direccion} {c.numero || ''}</span>}
+                            {c.localidad_nombre && <span>- {c.localidad_nombre}</span>}
+                          </div>
+                          {c.condicion_pago && <div className="small"><span className="badge bg-info text-dark mt-1">{c.condicion_pago}</span></div>}
+                        </div>
+                      ))}
+                    {Array.isArray(clients) && clients.filter(c => {
+                      if (!clientSearch) return true;
+                      const searchLower = clientSearch.toLowerCase();
+                      return (
+                        (c.razon_social && c.razon_social.toLowerCase().includes(searchLower)) ||
+                        (c.nombre && c.nombre.toLowerCase().includes(searchLower)) ||
+                        (c.apellido && c.apellido.toLowerCase().includes(searchLower)) ||
+                        (c.cuit && c.cuit.toLowerCase().includes(searchLower)) ||
+                        (c.direccion && c.direccion.toLowerCase().includes(searchLower)) ||
+                        (c.telefono && c.telefono.toLowerCase().includes(searchLower)) ||
+                        (c.localidad_nombre && c.localidad_nombre.toLowerCase().includes(searchLower))
+                      );
+                    }).length === 0 && (
+                      <div className="text-center text-muted p-3">No se encontraron clientes</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
               </div>
               
               <div className="col-md-3 mb-3">
                 <label className="form-label fw-bold">Tipo de Entrega *</label>
-                <select 
-                  className="form-select" 
-                  value={deliveryType} 
-                  onChange={(e) => setDeliveryType(e.target.value)}
-                >
+                <select className="form-select" value={deliveryType} onChange={(e) => setDeliveryType(e.target.value)}>
                   <option value="deposito">Depósito</option>
                   <option value="por reparto">Por Reparto</option>
                   <option value="otros">Otros</option>

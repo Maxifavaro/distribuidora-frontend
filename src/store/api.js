@@ -1,8 +1,9 @@
 import axios from 'axios';
 
-// Use empty string to let the proxy handle requests in development
-// In production, set REACT_APP_API_BASE to your backend URL
-const API_BASE = process.env.REACT_APP_API_BASE || '';
+// Use import.meta.env instead of process.env for Vite
+// In development, Vite proxy (configured in vite.config.js) handles requests to /api
+// In production, set VITE_API_BASE to your backend URL
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3002';
 
 // Create axios instance with default config
 const api = axios.create({
