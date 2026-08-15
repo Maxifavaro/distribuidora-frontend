@@ -11,6 +11,8 @@ export default function DynamicFieldRenderer({
   onBlur 
 }) {
   const { name, dataType, fieldType, maxLength, isNullable, readOnly } = column;
+  const normalizedDataType = (dataType || '').toLowerCase();
+  const textMaxLength = maxLength > 0 ? maxLength : 255;
 
   // Skip identity/computed columns
   if (readOnly) {
@@ -25,7 +27,19 @@ export default function DynamicFieldRenderer({
   const commonProps = {
     className: 'form-control',
     value: value || '',
-    onChange: (e) => onChange(name, e.target.value),
+    onChange: (e) => {
+      let nextValue = e.target.value;
+
+      if (fieldType === 'number' && normalizedDataType.includes('int')) {
+        nextValue = nextValue.replace(/[^0-9-]/g, '').replace(/(?!^)-/g, '');
+      }
+
+      if (fieldType === 'text') {
+        nextValue = nextValue.replace(/[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s]/g, '');
+      }
+
+      onChange(name, nextValue);
+    },
     onBlur,
     disabled: readOnly
   };
@@ -41,8 +55,7 @@ export default function DynamicFieldRenderer({
         <input
           id={name}
           type="text"
-          maxLength={maxLength || 255}
-          placeholder={`Máximo ${maxLength || '255'} caracteres`}
+          maxLength={textMaxLength}
           {...commonProps}
         />
       )}
@@ -88,10 +101,6 @@ export default function DynamicFieldRenderer({
         </div>
       )}
 
-      <small className="d-block text-muted mt-1">
-        Tipo: {dataType}
-        {maxLength && ` | Máx. ${maxLength} caracteres`}
-      </small>
     </div>
   );
 }

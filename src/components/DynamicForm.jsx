@@ -68,8 +68,9 @@ export default function DynamicForm({
       }
 
       // Check length for text fields
-      if (col.fieldType === 'text' && col.maxLength && value && value.length > col.maxLength) {
-        newErrors[col.name] = `No puede exceder ${col.maxLength} caracteres`;
+      const textMaxLength = col.maxLength > 0 ? col.maxLength : 255;
+      if (col.fieldType === 'text' && value && value.length > textMaxLength) {
+        newErrors[col.name] = `No puede exceder ${textMaxLength} caracteres`;
         return;
       }
 
