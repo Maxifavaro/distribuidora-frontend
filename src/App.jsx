@@ -9,7 +9,7 @@ import useStore from './store';
 export default function App() {
   const [active, setActive] = useState('home');
   const [sectionsLoaded, setSectionsLoaded] = useState(false);
-  const { token, logout, user, sections, fetchSections, loading } = useStore();
+  const { token, sections, fetchSections, loading } = useStore();
 
   useEffect(() => {
     if (token) {
@@ -56,10 +56,6 @@ export default function App() {
         <div className="container-fluid my-4">
           <div className="d-flex justify-content-between align-items-center mb-4">
             <h2>{getModuleTitle()}</h2>
-            <div>
-              <span className="me-3">{user?.username} ({user?.permission})</span>
-              <button className="btn btn-outline-secondary btn-sm" onClick={() => logout()}>Logout</button>
-            </div>
           </div>
 
           {active === 'statistics' && <Statistics />}
