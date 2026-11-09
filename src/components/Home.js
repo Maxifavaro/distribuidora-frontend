@@ -1,57 +1,46 @@
 import React from 'react';
 import useStore from '../store';
+import logo from '../../img/ommi LOGO (4).png';
 
 export default function Home() {
   const { user } = useStore();
 
   return (
-    <div className="container-fluid py-5">
-      <div className="row align-items-center min-vh-100">
-        <div className="col-lg-6 text-center mb-4 mb-lg-0">
-          <img
-            src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=500&h=500&fit=crop"
-            alt="Distribuidora"
-            className="img-fluid rounded-lg shadow-lg"
-            style={{ maxWidth: '100%', height: 'auto' }}
-          />
+    <main className="home-page">
+      <section className="home-hero">
+        <div className="home-hero-content">
+          <span className="home-eyebrow">TU ESPACIO DE TRABAJO</span>
+          <h1>¡Bienvenido, {user?.username}!</h1>
+          <p>Todo lo que necesitás para gestionar tu distribuidora, en un solo lugar.</p>
+          <div className="home-hint">Seleccioná una opción del menú lateral para comenzar <span aria-hidden="true">←</span></div>
         </div>
-        <div className="col-lg-6">
-          <div className="ps-lg-5">
-            <h1 className="display-4 fw-bold mb-4">
-              ¡Bienvenido, {user?.username}!
-            </h1>
-            <p className="lead text-muted mb-4">
-              Gestión integral de tu distribuidora de bebidas. Administra proveedores, clientes, productos y pedidos desde un único lugar.
-            </p>
-            <div className="d-flex flex-column gap-3">
-              <div className="d-flex align-items-start">
-                <div className="badge bg-primary me-3 p-2 mt-1">📦</div>
-                <div>
-                  <h5 className="mb-1">Productos</h5>
-                  <p className="text-muted small">Gestiona tu catálogo de bebidas y stock</p>
-                </div>
-              </div>
-              <div className="d-flex align-items-start">
-                <div className="badge bg-success me-3 p-2 mt-1">👥</div>
-                <div>
-                  <h5 className="mb-1">Clientes y Proveedores</h5>
-                  <p className="text-muted small">Administra tus contactos comerciales</p>
-                </div>
-              </div>
-              <div className="d-flex align-items-start">
-                <div className="badge bg-info me-3 p-2 mt-1">📋</div>
-                <div>
-                  <h5 className="mb-1">Pedidos</h5>
-                  <p className="text-muted small">Crea y gestiona órdenes de compra y venta</p>
-                </div>
-              </div>
-            </div>
-            <p className="text-muted mt-5 small">
-              👉 Selecciona una opción en el menú superior para comenzar
-            </p>
+        <div className="home-logo">
+          <img src={logo} alt="Distribuidora Ommi" />
+        </div>
+      </section>
+      <section className="home-overview" aria-label="Áreas de gestión">
+        <div className="home-section-heading">
+          <span className="home-eyebrow">TU NEGOCIO, ORGANIZADO</span>
+          <h2>Una gestión más simple</h2>
+        </div>
+        <div className="home-feature-grid">
+          <div className="home-feature">
+            <span className="home-feature-icon" aria-hidden="true">01</span>
+            <h3>Productos</h3>
+            <p>Gestioná tu catálogo de bebidas y stock.</p>
+          </div>
+          <div className="home-feature">
+            <span className="home-feature-icon" aria-hidden="true">02</span>
+            <h3>Clientes y proveedores</h3>
+            <p>Administrá tus contactos comerciales.</p>
+          </div>
+          <div className="home-feature">
+            <span className="home-feature-icon" aria-hidden="true">03</span>
+            <h3>Pedidos</h3>
+            <p>Creá y gestioná órdenes de compra y venta.</p>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

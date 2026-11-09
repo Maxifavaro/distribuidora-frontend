@@ -6,7 +6,7 @@ import { formatLabel } from '../utils/DynamicFieldRenderer';
  * Dropdown de selección múltiple para elegir qué columnas mostrar en DynamicGrid
  * Persiste la selección en localStorage por tabla
  */
-export default function ColumnSelector({ tableStructure, selectedColumns, onChange }) {
+export default function ColumnSelector({ tableStructure, selectedColumns, onChange, fieldLabels = {} }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -65,7 +65,7 @@ export default function ColumnSelector({ tableStructure, selectedColumns, onChan
               onChange={() => toggleColumn(col.name)}
             />
             <label className="form-check-label" htmlFor={`col-check-${col.name}`}>
-              {formatLabel(col.name)}
+              {fieldLabels[col.name.toLowerCase()] || formatLabel(col.name)}
             </label>
           </div>
         ))}

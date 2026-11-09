@@ -11,7 +11,7 @@ import React from 'react';
  */
 const StatCard = ({ title, bgColor = 'bg-primary', children, emptyMessage, isEmpty }) => {
   return (
-    <div className="card mt-4">
+    <div className="card stats-card mt-4">
       <div className={`card-header ${bgColor} text-white`}>
         <h5 className="mb-0">{title}</h5>
       </div>

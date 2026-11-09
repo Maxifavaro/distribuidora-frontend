@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { formatDisplayValue, formatLabel } from '../utils/DynamicFieldRenderer';
+import { formatDisplayValue, formatLabel, LOOKUP_COLUMNS } from '../../utils/DynamicFieldRenderer';
+import useStore from '../../store';
 
 /**
  * DynamicGrid
@@ -17,9 +18,39 @@ export default function DynamicGrid({
   onEdit,
   onDelete,
   showActions = true,
-  isLoading = false
+  isLoading = false,
+  searchExcludedColumns = [],
+  fieldLabels = {},
+  fieldOptions = {},
+  dateOnlyFields = []
 }) {
   const [currentPage, setCurrentPage] = useState(1);
+  const catalogs = useStore();
+  const { fetchBarrios, fetchLocalidades } = catalogs;
+
+  useEffect(() => {
+    fetchBarrios();
+    fetchLocalidades();
+  }, [fetchBarrios, fetchLocalidades]);
+  const displayValue = (row, col) => {
+    if (dateOnlyFields.includes(col.name.toLowerCase()) && typeof row[col.name] === 'string') {
+      const date = row[col.name].slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return date.split('-').reverse().join('/');
+      }
+    }
+    const options = fieldOptions[col.name.toLowerCase()];
+    if (options && row[col.name] !== null && row[col.name] !== undefined) {
+      const option = options.find(item => String(item.id) === String(row[col.name]));
+      if (option) return option.nombre;
+    }
+    const catalogKey = LOOKUP_COLUMNS[col.name];
+    if (catalogKey && row[col.name] !== null && row[col.name] !== undefined) {
+      const item = (catalogs[catalogKey] || []).find(c => String(c.id) === String(row[col.name]));
+      if (item) return item.nombre;
+    }
+    return formatDisplayValue(row[col.name], col.fieldType, col.dataType);
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -29,9 +60,11 @@ export default function DynamicGrid({
     if (!searchTerm.trim()) return data;
     const term = searchTerm.trim().toLowerCase();
     return data.filter(row =>
-      Object.values(row).some(value => value !== null && value !== undefined && String(value).toLowerCase().includes(term))
+      Object.entries(row).some(([name, value]) =>
+        !searchExcludedColumns.includes(name.toLowerCase()) &&
+        value !== null && value !== undefined && String(value).toLowerCase().includes(term))
     );
-  }, [data, searchTerm]);
+  }, [data, searchTerm, searchExcludedColumns]);
 
   if (!tableStructure || !tableStructure.columns) {
     return <div className="alert alert-info">Cargando estructura de tabla...</div>;
@@ -46,8 +79,7 @@ export default function DynamicGrid({
     ? allColumns.filter(col => visibleColumns.includes(col.name))
     : allColumns;
 
-  const primaryKeyColumn = tableStructure.columns.find(col => col.isPrimaryKey);
-  const primaryKeyName = primaryKeyColumn ? primaryKeyColumn.name : null;
+  const primaryKeyNames = tableStructure.columns.filter(col => col.isPrimaryKey).map(col => col.name);
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -74,14 +106,14 @@ export default function DynamicGrid({
               {showActions && <th className="text-center" style={{ whiteSpace: 'nowrap', padding: '0.2rem 0.5rem' }}>Acciones</th>}
               {displayColumns.map(col => (
                 <th key={col.name} style={{ whiteSpace: 'nowrap', minWidth: '120px', padding: '0.2rem 0.5rem' }}>
-                  {formatLabel(col.name)}
+                  {fieldLabels[col.name.toLowerCase()] || formatLabel(col.name)}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {paginatedData.map((row, idx) => (
-              <tr key={primaryKeyName && row[primaryKeyName] ? row[primaryKeyName] : idx}>
+              <tr key={primaryKeyNames.length ? JSON.stringify(primaryKeyNames.map(name => row[name])) : idx}>
                 {showActions && (
                   <td className="text-center align-middle" style={{ padding: '0.2rem 0.5rem' }}>
                     <div className="btn-group btn-group-sm" role="group">
@@ -94,7 +126,7 @@ export default function DynamicGrid({
                       </button>
                       <button 
                         className="btn btn-outline-danger"
-                        onClick={() => onDelete && onDelete(row[primaryKeyName])}
+                        onClick={() => onDelete && onDelete(row)}
                         title="Eliminar"
                       >
                         🗑️
@@ -104,7 +136,7 @@ export default function DynamicGrid({
                 )}
                 {displayColumns.map(col => (
                   <td key={`${idx}-${col.name}`} title={String(row[col.name] || '-')} className="align-middle" style={{ whiteSpace: 'nowrap', minWidth: '120px', padding: '0.2rem 0.5rem' }}>
-                    {formatDisplayValue(row[col.name], col.fieldType, col.dataType)}
+                    {displayValue(row, col)}
                   </td>
                 ))}
               </tr>
@@ -139,4 +171,3 @@ export default function DynamicGrid({
     </div>
   );
 }
-

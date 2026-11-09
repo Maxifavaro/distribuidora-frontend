@@ -4,10 +4,18 @@ import TopNav from './components/TopNav';
 import Statistics from './components/Statistics';
 import Login from './components/Login';
 import DynamicModule from './components/DynamicModule';
+import Clients from './components/Clients/Clients';
+import Employees from './components/Employees/Employees';
+import Users from './components/Users/Users';
 import useStore from './store';
 
 export default function App() {
   const [active, setActive] = useState('home');
+  const [navCounter, setNavCounter] = useState(0);
+  const handleSelect = (key) => {
+    setActive(key);
+    setNavCounter(n => n + 1);
+  };
   const [sectionsLoaded, setSectionsLoaded] = useState(false);
   const { token, sections, fetchSections, loading } = useStore();
 
@@ -33,9 +41,9 @@ export default function App() {
 
   if (loading && !sectionsLoaded) {
     return (
-      <div>
-        <TopNav active={active} onSelect={setActive} />
-        <div className="container-fluid my-4">
+      <div className="app-layout">
+        <TopNav active={active} onSelect={handleSelect} />
+        <div className="app-main container-fluid my-4">
           <div className="text-center">
             <div className="spinner-border" role="status">
               <span className="visually-hidden">Cargando módulos...</span>
@@ -48,20 +56,25 @@ export default function App() {
   }
 
   return (
-    <div>
-      <TopNav active={active} onSelect={setActive} />
+    <div className="app-layout">
+      <TopNav active={active} onSelect={handleSelect} />
+      <div className="app-main">
       {active === 'home' ? (
         <Home />
       ) : (
-        <div className="container-fluid my-4">
+        <div className="container-fluid my-4 module-page">
           <div className="d-flex justify-content-between align-items-center mb-4">
-            <h2>{getModuleTitle()}</h2>
+            <h2 className="fw-bold">{getModuleTitle()}</h2>
           </div>
 
-          {active === 'statistics' && <Statistics />}
-          {active !== 'statistics' && active !== 'home' && <DynamicModule sectionKey={active} />}
+          {active === 'statistics' && <Statistics key={navCounter} />}
+          {active === 'users' && <Users key={navCounter} />}
+          {active === 'clients' && <Clients key={navCounter} />}
+          {active === 'empleados' && <Employees key={navCounter} />}
+          {!['statistics', 'home', 'users', 'clients', 'empleados'].includes(active) && <DynamicModule key={`${active}-${navCounter}`} sectionKey={active} />}
         </div>
       )}
+      </div>
     </div>
   );
 }

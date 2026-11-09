@@ -1,23 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import useStore from '../store';
-import DynamicGrid from './DynamicGrid';
-import DynamicForm from './DynamicForm';
+import DynamicGrid from './shared/DynamicGrid';
+import DynamicForm from './shared/DynamicForm';
 import ColumnSelector from './ColumnSelector';
+import ModuleSummary from './shared/ModuleSummary';
 import api from '../store/api';
 import Swal from 'sweetalert2';
+
+const MANUAL_KEY_MODULES = ['categoria', 'listaprecio', 'condiva'];
+const EMPTY_CONFIG = {};
+
+function recordKey(record, structure) {
+  const keys = structure.primaryKeys || structure.columns.filter(col => col.isPrimaryKey).map(col => col.name);
+  if (!keys.length || keys.some(key => record[key] === null || record[key] === undefined)) {
+    throw new Error('No se pudo identificar el registro');
+  }
+  return encodeURIComponent(keys.length === 1 ? String(record[keys[0]]) : JSON.stringify(keys.map(key => record[key])));
+}
 
 /**
  * DynamicModule
  * Componente genérico que genera un módulo CRUD completo basado en la estructura de la tabla
  * Funciona para CUALQUIER módulo: Proveedores, Clientes, Productos, etc.
  */
-export default function DynamicModule({ sectionKey }) {
+export default function DynamicModule({ sectionKey, config = EMPTY_CONFIG }) {
   const {
     fetchTableStructure,
-    getTableStructure,
     getSectionByKey,
     fetchSections,
-    sections
+    permission
   } = useStore();
 
   const [data, setData] = useState([]);
@@ -31,6 +42,7 @@ export default function DynamicModule({ sectionKey }) {
   const [selectedColumns, setSelectedColumns] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [pageSize, setPageSize] = useState(10);
+  const [fieldOptions, setFieldOptions] = useState();
 
   useEffect(() => {
     loadModule();
@@ -56,14 +68,16 @@ export default function DynamicModule({ sectionKey }) {
       console.log('Module loaded:', { tableName: currentSection.table_name });
       setSection(currentSection);
 
-      const structure = await fetchTableStructure?.(currentSection.table_name);
+      const structure = await fetchTableStructure?.(currentSection.table_name, { refresh: !!config.refreshStructure });
       if (!structure) {
         throw new Error(`No se pudo obtener estructura: ${currentSection.table_name}`);
       }
       setTableStructure(structure);
 
       const storageKey = `dynamicGrid.columns.${currentSection.table_name}`;
-      const allNames = structure.columns.filter(c => !c.isIdentity && !c.isComputed).map(c => c.name);
+      const allNames = structure.columns
+        .filter(c => !c.isIdentity && !c.isComputed && !(config.gridHiddenColumns || []).includes(c.name.toLowerCase()))
+        .map(c => c.name);
       let initialColumns = allNames;
       const saved = localStorage.getItem(storageKey);
       if (saved) {
@@ -74,7 +88,10 @@ export default function DynamicModule({ sectionKey }) {
           initialColumns = allNames;
         }
       }
+      if (config.prepareColumns) initialColumns = config.prepareColumns(initialColumns, allNames, storageKey);
       setSelectedColumns(initialColumns);
+
+      setFieldOptions(config.loadOptions ? await config.loadOptions() : undefined);
 
       const dynamicEndpoint = `/dynamic/${currentSection.table_name}`;
       await loadData(dynamicEndpoint);
@@ -106,7 +123,7 @@ export default function DynamicModule({ sectionKey }) {
     setShowForm(true);
   };
 
-  const handleDelete = async (recordId) => {
+  const handleDelete = async (record) => {
     const result = await Swal.fire({
       title: '¿Estás seguro?',
       text: 'No podrás revertir esta acción',
@@ -119,12 +136,7 @@ export default function DynamicModule({ sectionKey }) {
 
     if (result.isConfirmed) {
       try {
-        // Obtener el nombre de la primary key
-        const pkColumn = tableStructure.columns.find(col => col.isPrimaryKey);
-        if (!pkColumn) throw new Error('Primary key no encontrada');
-
-        // Construir endpoint de delete
-        const deleteEndpoint = `/dynamic/${section.table_name}/${recordId}`;
+        const deleteEndpoint = `/dynamic/${section.table_name}/${recordKey(record, tableStructure)}`;
         
         await api.delete(deleteEndpoint);
         
@@ -143,12 +155,9 @@ export default function DynamicModule({ sectionKey }) {
     try {
       setIsSubmitting(true);
       
-      const pkColumn = tableStructure.columns.find(col => col.isPrimaryKey);
-      const pkName = pkColumn ? pkColumn.name : null;
-
-      if (editingRecord && pkName) {
+      if (editingRecord) {
         // Update
-        const updateEndpoint = `/dynamic/${section.table_name}/${editingRecord[pkName]}`;
+        const updateEndpoint = `/dynamic/${section.table_name}/${recordKey(editingRecord, tableStructure)}`;
         await api.put(updateEndpoint, formData);
         Swal.fire('Éxito', 'Registro actualizado correctamente', 'success');
       } else {
@@ -205,35 +214,50 @@ export default function DynamicModule({ sectionKey }) {
     return <div className="alert alert-danger">Estructura de tabla no encontrada para: {section.table_name}</div>;
   }
 
+  const gridStructure = config.gridHiddenColumns
+    ? { ...tableStructure, columns: tableStructure.columns.filter(col => !config.gridHiddenColumns.includes(col.name.toLowerCase())) }
+    : tableStructure;
+  const fieldLabels = config.fieldLabels;
+  const dateOnlyFields = config.dateOnlyFields;
+  const adminOnlyActions = config.adminOnlyActions || MANUAL_KEY_MODULES.includes(sectionKey);
+  const formProps = {
+    editablePrimaryKeys: MANUAL_KEY_MODULES.includes(sectionKey),
+    allowTextPunctuation: MANUAL_KEY_MODULES.includes(sectionKey),
+    ...config.formProps
+  };
+  const FormHeading = config.FormHeading;
+
   return (
-    <div className="dynamic-module">
+    <div className={`dynamic-module${config.moduleClassName ? ` ${config.moduleClassName}` : ''}`}>
       {!showForm ? (
         <>
           {/* Vista de Grilla */}
-          <div className="mb-3 d-flex flex-wrap gap-2 align-items-center justify-content-between">
-            <div className="d-flex gap-2 align-items-center">
+          <ModuleSummary moduleKey={sectionKey} sectionName={section.name} count={data.length} />
+
+          <div className="dynamic-module-toolbar client-module-toolbar mb-3 d-flex flex-wrap gap-2 align-items-center justify-content-between">
+            <div className="d-flex gap-2 align-items-center client-module-search-group">
               <input
                 type="text"
                 className="form-control"
-                style={{ maxWidth: '300px' }}
-                placeholder="Buscar..."
+                placeholder={config.searchPlaceholder || 'Buscar...'}
+                aria-label={config.searchLabel || 'Buscar registros'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-              <button 
+              {(!adminOnlyActions || permission === 'admin') && <button
                 className="btn btn-primary d-flex align-items-center justify-content-center flex-shrink-0"
-                style={{ fontSize: '1.25rem', lineHeight: 1, width: '38px', height: '38px', padding: 0 }}
                 onClick={handleCreate}
-                title="Crear Nuevo"
+                title={config.createTitle || 'Crear Nuevo'}
               >
-                <span style={{ transform: 'translateY(-1.5px)' }}>+</span>
-              </button>
+                <span aria-hidden="true">+</span><span>{config.createLabel || 'Nuevo registro'}</span>
+              </button>}
             </div>
-            <div className="d-flex gap-2 align-items-center">
+            <div className="d-flex gap-2 align-items-center client-module-options">
               <ColumnSelector
-                tableStructure={tableStructure}
+                tableStructure={gridStructure}
                 selectedColumns={selectedColumns}
                 onChange={handleColumnsChange}
+                fieldLabels={fieldLabels}
               />
               <label className="small text-muted mb-0">Mostrar:</label>
               <select
@@ -249,32 +273,47 @@ export default function DynamicModule({ sectionKey }) {
             </div>
           </div>
 
-          <DynamicGrid
-            tableStructure={tableStructure}
-            data={data}
-            visibleColumns={selectedColumns}
-            searchTerm={searchTerm}
-            pageSize={pageSize}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            isLoading={loading}
-          />
+          <div className="client-module-grid">
+            <DynamicGrid
+              tableStructure={gridStructure}
+              data={data}
+              visibleColumns={selectedColumns}
+              searchTerm={searchTerm}
+              pageSize={pageSize}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              isLoading={loading}
+              searchExcludedColumns={config.gridHiddenColumns}
+              showActions={!adminOnlyActions || permission === 'admin'}
+              fieldLabels={fieldLabels}
+              fieldOptions={fieldOptions}
+              dateOnlyFields={dateOnlyFields}
+            />
+          </div>
         </>
       ) : (
         <>
           {/* Vista de Formulario */}
-          <div className="card p-4 mb-3">
-            <h5 className="card-title">
-              {editingRecord ? 'Editar Registro' : 'Crear Nuevo Registro'}
-            </h5>
+          <div className={`card form-panel client-module-form p-4 mb-3${config.formClassName ? ` ${config.formClassName}` : ''}`}>
+            {FormHeading ? (
+              <FormHeading editing={!!editingRecord} />
+            ) : (
+              <h5 className="card-title">
+                {editingRecord ? 'Editar Registro' : 'Crear Nuevo Registro'}
+              </h5>
+            )}
 
             <DynamicForm
               tableStructure={tableStructure}
               initialData={editingRecord}
               onSubmit={handleSubmit}
               onCancel={() => setShowForm(false)}
-              submitLabel={editingRecord ? 'Actualizar' : 'Crear'}
+              submitLabel={editingRecord ? (config.submitLabels?.edit || 'Actualizar') : (config.submitLabels?.create || 'Crear')}
               isLoading={isSubmitting}
+              {...formProps}
+              fieldLabels={fieldLabels}
+              fieldOptions={fieldOptions}
+              dateOnlyFields={dateOnlyFields}
             />
           </div>
         </>

@@ -1,51 +1,30 @@
 import api from './api';
 
-export const usersSlice = (set, get) => ({
+export const usersSlice = (set) => ({
   users: [],
+  employeesForUsers: [],
+  userPermissions: [],
 
   fetchUsers: async () => {
-    set({ loading: true, error: null });
     try {
-      const { data } = await api.get('/users');
-      set({ users: Array.isArray(data) ? data : [], loading: false });
-    } catch (err) { 
-      set({ error: err.response?.data?.error || err.message, users: [], loading: false }); 
+      const [users, employees, permissions] = await Promise.all([
+        api.get('/users'), api.get('/users/employees'), api.get('/users/permissions')
+      ]);
+      set({ users: users.data, employeesForUsers: employees.data, userPermissions: permissions.data });
+    } catch (err) {
+      throw new Error(err.response?.data?.error || err.message);
     }
   },
-
   createUser: async (payload) => {
-    set({ loading: true, error: null });
-    try {
-      const { data } = await api.post('/users', payload);
-      set((state) => ({ users: [...state.users, data], loading: false }));
-      return data;
-    } catch (err) { 
-      set({ error: err.response?.data?.error || err.message, loading: false }); 
-      throw err; 
-    }
+    try { await api.post('/users', payload); }
+    catch (err) { throw new Error(err.response?.data?.error || err.message); }
   },
-
   updateUser: async (id, payload) => {
-    set({ loading: true, error: null });
-    try {
-      const { data } = await api.put(`/users/${id}`, payload);
-      set((state) => ({ users: state.users.map(u => u.id === parseInt(id) ? { ...u, ...payload } : u), loading: false }));
-      return data;
-    } catch (err) { 
-      set({ error: err.response?.data?.error || err.message, loading: false }); 
-      throw err; 
-    }
+    try { await api.put(`/users/${id}`, payload); }
+    catch (err) { throw new Error(err.response?.data?.error || err.message); }
   },
-
   deleteUser: async (id) => {
-    set({ loading: true, error: null });
-    try {
-      await api.delete(`/users/${id}`);
-      set((state) => ({ users: state.users.filter(u => u.id !== parseInt(id)), loading: false }));
-      return true;
-    } catch (err) { 
-      set({ error: err.response?.data?.error || err.message, loading: false }); 
-      throw err; 
-    }
+    try { await api.delete(`/users/${id}`); }
+    catch (err) { throw new Error(err.response?.data?.error || err.message); }
   }
 });
