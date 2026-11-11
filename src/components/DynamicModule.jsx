@@ -3,12 +3,15 @@ import useStore from '../store';
 import DynamicGrid from './shared/DynamicGrid';
 import DynamicForm from './shared/DynamicForm';
 import ColumnSelector from './ColumnSelector';
-import ModuleSummary from './shared/ModuleSummary';
+import ModuleSummary, { getModuleDetails } from './shared/ModuleSummary';
+import SharedFormHeading from './shared/FormHeading';
 import api from '../store/api';
 import Swal from 'sweetalert2';
 
 const MANUAL_KEY_MODULES = ['categoria', 'listaprecio', 'condiva'];
 const EMPTY_CONFIG = {};
+const FEMININE = ['marca', 'categoría', 'lista', 'condición'];
+const newLabel = (singular) => `${FEMININE.includes(singular) ? 'Nueva' : 'Nuevo'} ${singular}`;
 
 function recordKey(record, structure) {
   const keys = structure.primaryKeys || structure.columns.filter(col => col.isPrimaryKey).map(col => col.name);
@@ -75,14 +78,22 @@ export default function DynamicModule({ sectionKey, config = EMPTY_CONFIG }) {
       setTableStructure(structure);
 
       const storageKey = `dynamicGrid.columns.${currentSection.table_name}`;
+      const identityNames = structure.columns.filter(c => c.isIdentity && !c.isComputed).map(c => c.name);
       const allNames = structure.columns
-        .filter(c => !c.isIdentity && !c.isComputed && !(config.gridHiddenColumns || []).includes(c.name.toLowerCase()))
+        .filter(c => !c.isComputed && !(config.gridHiddenColumns || []).includes(c.name.toLowerCase()))
         .map(c => c.name);
       let initialColumns = allNames;
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         try {
-          const savedNames = JSON.parse(saved).filter(n => allNames.includes(n));
+          let savedNames = JSON.parse(saved).filter(n => allNames.includes(n));
+          // Migración única: las selecciones guardadas antes no incluían la columna ID
+          const idMigrationKey = `${storageKey}.id-v1`;
+          if (!localStorage.getItem(idMigrationKey)) {
+            savedNames = [...identityNames.filter(n => allNames.includes(n) && !savedNames.includes(n)), ...savedNames];
+            localStorage.setItem(storageKey, JSON.stringify(savedNames));
+            localStorage.setItem(idMigrationKey, '1');
+          }
           if (savedNames.length > 0) initialColumns = savedNames;
         } catch {
           initialColumns = allNames;
@@ -118,8 +129,13 @@ export default function DynamicModule({ sectionKey, config = EMPTY_CONFIG }) {
     setShowForm(true);
   };
 
-  const handleEdit = (record) => {
-    setEditingRecord(record);
+  const handleEdit = async (record) => {
+    let extras = {};
+    if (config.loadRecordExtras) {
+      try { extras = await config.loadRecordExtras(record); }
+      catch (err) { Swal.fire('Error', `No se pudieron cargar los datos del registro: ${err.response?.data?.message || err.message}`, 'error'); return; }
+    }
+    setEditingRecord({ ...record, ...extras });
     setShowForm(true);
   };
 
@@ -155,16 +171,17 @@ export default function DynamicModule({ sectionKey, config = EMPTY_CONFIG }) {
     try {
       setIsSubmitting(true);
       
+      let saved = {};
       if (editingRecord) {
         // Update
         const updateEndpoint = `/dynamic/${section.table_name}/${recordKey(editingRecord, tableStructure)}`;
         await api.put(updateEndpoint, formData);
-        Swal.fire('Éxito', 'Registro actualizado correctamente', 'success');
       } else {
-        // Create
-        await api.post(`/dynamic/${section.table_name}`, formData);
-        Swal.fire('Éxito', 'Registro creado correctamente', 'success');
+        const endpoint = config.createEndpoint || `/dynamic/${section.table_name}`;
+        saved = (await api.post(endpoint, formData)).data || {};
       }
+      if (config.afterSave) await config.afterSave(formData, saved, editingRecord);
+      Swal.fire('Éxito', editingRecord ? 'Registro actualizado correctamente' : 'Registro creado correctamente', 'success');
 
       setShowForm(false);
       await loadData(`/dynamic/${section.table_name}`);
@@ -247,9 +264,9 @@ export default function DynamicModule({ sectionKey, config = EMPTY_CONFIG }) {
               {(!adminOnlyActions || permission === 'admin') && <button
                 className="btn btn-primary d-flex align-items-center justify-content-center flex-shrink-0"
                 onClick={handleCreate}
-                title={config.createTitle || 'Crear Nuevo'}
+                title={config.createTitle || `Crear ${getModuleDetails(sectionKey, section.name).singular}`}
               >
-                <span aria-hidden="true">+</span><span>{config.createLabel || 'Nuevo registro'}</span>
+                <span aria-hidden="true">+</span><span>{config.createLabel || newLabel(getModuleDetails(sectionKey, section.name).singular)}</span>
               </button>}
             </div>
             <div className="d-flex gap-2 align-items-center client-module-options">
@@ -298,9 +315,11 @@ export default function DynamicModule({ sectionKey, config = EMPTY_CONFIG }) {
             {FormHeading ? (
               <FormHeading editing={!!editingRecord} />
             ) : (
-              <h5 className="card-title">
-                {editingRecord ? 'Editar Registro' : 'Crear Nuevo Registro'}
-              </h5>
+              <SharedFormHeading
+                eyebrow={getModuleDetails(sectionKey, section.name).title.toUpperCase()}
+                title={`${editingRecord ? 'Editar' : 'Nuevo'} ${getModuleDetails(sectionKey, section.name).singular}`}
+                description={`Completá los datos para ${editingRecord ? 'actualizar el' : 'agregar un'} ${getModuleDetails(sectionKey, section.name).singular}${editingRecord ? '' : ' al listado'}.`}
+              />
             )}
 
             <DynamicForm
@@ -308,7 +327,7 @@ export default function DynamicModule({ sectionKey, config = EMPTY_CONFIG }) {
               initialData={editingRecord}
               onSubmit={handleSubmit}
               onCancel={() => setShowForm(false)}
-              submitLabel={editingRecord ? (config.submitLabels?.edit || 'Actualizar') : (config.submitLabels?.create || 'Crear')}
+              submitLabel={editingRecord ? (config.submitLabels?.edit || 'Guardar cambios') : (config.submitLabels?.create || `Guardar ${getModuleDetails(sectionKey, section.name).singular}`)}
               isLoading={isSubmitting}
               {...formProps}
               fieldLabels={fieldLabels}

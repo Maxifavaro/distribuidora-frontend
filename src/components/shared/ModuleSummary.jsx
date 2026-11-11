@@ -7,7 +7,6 @@ const MODULES = {
   rubros: { title: 'Catálogo de rubros', description: 'Administrá los rubros de tus productos.', singular: 'rubro', plural: 'rubros' },
   marcas: { title: 'Catálogo de marcas', description: 'Administrá las marcas de tus productos.', singular: 'marca', plural: 'marcas' },
   orders: { title: 'Gestión de pedidos', description: 'Administrá los pedidos registrados.', singular: 'pedido', plural: 'pedidos' },
-  repartidores: { title: 'Directorio de repartidores', description: 'Administrá la información de tus repartidores.', singular: 'repartidor', plural: 'repartidores' },
   empleados: { title: 'Directorio de empleados', description: 'Administrá la información de tus empleados.', singular: 'empleado', plural: 'empleados' },
   categoria: { title: 'Categorías de empleados', description: 'Administrá las categorías de tus empleados.', singular: 'categoría', plural: 'categorías' },
   listaprecio: { title: 'Listas de precios', description: 'Administrá las listas de precios disponibles.', singular: 'lista', plural: 'listas' },
@@ -15,13 +14,17 @@ const MODULES = {
   users: { title: 'Gestión de accesos', description: 'Administrá los usuarios y permisos de tus empleados.', singular: 'usuario', plural: 'usuarios' }
 };
 
-export default function ModuleSummary({ moduleKey, sectionName, count }) {
-  const details = MODULES[moduleKey] || {
+export function getModuleDetails(moduleKey, sectionName) {
+  return MODULES[moduleKey] || {
     title: sectionName,
     description: 'Administrá los registros de esta sección.',
     singular: 'registro',
     plural: 'registros'
   };
+}
+
+export default function ModuleSummary({ moduleKey, sectionName, count }) {
+  const details = getModuleDetails(moduleKey, sectionName);
 
   return (
     <header className="client-module-header">

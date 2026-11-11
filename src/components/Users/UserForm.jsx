@@ -1,4 +1,5 @@
 import React from 'react';
+import FormHeading from '../shared/FormHeading';
 
 export default function UserForm({ form, onChange, employeeSearch, onEmployeeSearch, employees, permissions, saving, onSubmit, onCancel }) {
   const term = employeeSearch.trim().toLocaleLowerCase();
@@ -7,8 +8,18 @@ export default function UserForm({ form, onChange, employeeSearch, onEmployeeSea
 
   return (
     <form onSubmit={onSubmit} className="card card-body mb-4">
-      <h3>{form.employee ? 'Editar usuario' : 'Asignar usuario a empleado'}</h3>
-      {form.employee ? <p>Empleado: {form.employee}</p> : (
+      <FormHeading
+        eyebrow="GESTIÓN DE ACCESOS"
+        title={form.employee ? 'Editar usuario' : 'Nuevo usuario'}
+        description={form.employee ? 'Completá los datos para actualizar el acceso.' : 'Completá los datos para asignar un usuario a un empleado.'}
+      />
+      {form.employee ? (
+        <>
+          <label className="form-label" htmlFor="user-id">Código</label>
+          <input id="user-id" className="form-control mb-3" value={form.employeeId} readOnly tabIndex={-1} />
+          <p>Empleado: {form.employee}</p>
+        </>
+      ) : (
         <>
           <label className="form-label" htmlFor="employee-search">Buscar empleado</label>
           <input id="employee-search" className="form-control mb-2" value={employeeSearch} onChange={e => { onEmployeeSearch(e.target.value); onChange({ ...form, employeeId: '' }); }} placeholder="Nombre, apellido o código" />
@@ -28,8 +39,8 @@ export default function UserForm({ form, onChange, employeeSearch, onEmployeeSea
         <option value="">Seleccioná un permiso</option>
         {permissions.map(item => <option key={item.id} value={item.id}>{item.nombre}</option>)}
       </select>
-      <div>
-        <button type="submit" className="btn btn-primary me-2" disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button>
+      <div className="d-flex gap-2 justify-content-end client-entry-actions">
+        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Guardando...' : form.employee ? 'Guardar cambios' : 'Guardar usuario'}</button>
         <button type="button" className="btn btn-secondary" disabled={saving} onClick={onCancel}>Cancelar</button>
       </div>
     </form>

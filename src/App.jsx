@@ -7,7 +7,13 @@ import DynamicModule from './components/DynamicModule';
 import Clients from './components/Clients/Clients';
 import Employees from './components/Employees/Employees';
 import Users from './components/Users/Users';
+import Marcas from './components/Marcas/Marcas';
+import Providers from './components/Providers/Providers';
+import Products from './components/Products/Products';
+import Orders from './components/Orders/Orders';
 import useStore from './store';
+
+const priceListConfig = { dateOnlyFields: ['fechadesde', 'fechahasta'] };
 
 export default function App() {
   const [active, setActive] = useState('home');
@@ -38,7 +44,6 @@ export default function App() {
     const section = sections.find(s => s.key === active);
     return section ? section.name : active.charAt(0).toUpperCase() + active.slice(1);
   };
-
   if (loading && !sectionsLoaded) {
     return (
       <div className="app-layout">
@@ -71,7 +76,11 @@ export default function App() {
           {active === 'users' && <Users key={navCounter} />}
           {active === 'clients' && <Clients key={navCounter} />}
           {active === 'empleados' && <Employees key={navCounter} />}
-          {!['statistics', 'home', 'users', 'clients', 'empleados'].includes(active) && <DynamicModule key={`${active}-${navCounter}`} sectionKey={active} />}
+          {active === 'marcas' && <Marcas key={navCounter} />}
+          {active === 'providers' && <Providers key={navCounter} />}
+          {active === 'products' && <Products key={navCounter} />}
+          {active === 'orders' && <Orders key={navCounter} />}
+          {!['statistics', 'home', 'users', 'clients', 'empleados', 'marcas', 'providers', 'products', 'orders'].includes(active) && <DynamicModule key={`${active}-${navCounter}`} sectionKey={active} config={active === 'listaprecio' ? priceListConfig : undefined} />}
         </div>
       )}
       </div>

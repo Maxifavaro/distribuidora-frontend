@@ -28,6 +28,7 @@ export default function DynamicForm({
   allowTextPunctuation = false,
   fieldLabels = {},
   fieldOptions = {},
+  multiSelectFields = [],
   strictOptionFields = [],
   dateOnlyFields = []
 }) {
@@ -35,10 +36,13 @@ export default function DynamicForm({
   const [errors, setErrors] = useState({});
   const catalogs = useStore();
   const { fetchBarrios, fetchLocalidades } = catalogs;
+  const hasKeyValue = (column) => column.isPrimaryKey && initialData && initialData[column.name] !== undefined && initialData[column.name] !== null;
+  const keyIsEditable = (column) => editablePrimaryKeys && !column.readOnly;
   const isLocked = (column) =>
-    lockedColumns.some(name => name.toLowerCase() === column.name.toLowerCase());
+    lockedColumns.some(name => name.toLowerCase() === column.name.toLowerCase()) ||
+    (column.isPrimaryKey && (!keyIsEditable(column) || hasKeyValue(column)));
   const isHidden = (column) =>
-    hiddenColumns.some(name => name.toLowerCase() === column.name.toLowerCase());
+    !hasKeyValue(column) && hiddenColumns.some(name => name.toLowerCase() === column.name.toLowerCase());
   const isCheckbox = (column) =>
     checkboxColumns.some(name => name.toLowerCase() === column.name.toLowerCase());
 
@@ -59,7 +63,10 @@ export default function DynamicForm({
           ? value.slice(0, dateOnlyFields.includes(col.name.toLowerCase()) ? 10 : 16)
           : value;
       });
-      setFormData(initialized);
+      setFormData({
+        ...initialized,
+        ...Object.fromEntries(multiSelectFields.map(f => [f.name, Array.isArray(safeInitialData[f.name]) ? safeInitialData[f.name] : []]))
+      });
     }
   }, [tableStructure, initialData]);
 
@@ -152,6 +159,8 @@ export default function DynamicForm({
       });
     }
 
+    multiSelectFields.forEach(f => { submitData[f.name] = formData[f.name] || []; });
+
     onSubmit(submitData);
   };
 
@@ -160,8 +169,9 @@ export default function DynamicForm({
   }
 
   // Filter out primary key column (should be handled separately or not editable)
+  // La clave (ID) se muestra de solo lectura al editar un registro
   const editableColumns = tableStructure.columns.filter(col =>
-    (!col.isPrimaryKey || (editablePrimaryKeys && !col.readOnly)) && !isHidden(col));
+    (!col.isPrimaryKey || keyIsEditable(col) || hasKeyValue(col)) && !isHidden(col));
 
   const renderField = (column) => (
     <div key={column.name} className={column.fieldType === 'boolean' ? 'col-12' : 'col-md-6'}>
@@ -196,6 +206,10 @@ export default function DynamicForm({
       cols.forEach(c => used.add(c.name));
       return { title: group.title, cols };
     });
+    const keyColumns = editableColumns.filter(c => c.isPrimaryKey && !used.has(c.name));
+    keyColumns.forEach(c => used.add(c.name));
+    if (keyColumns.length && sections.length) sections[0] = { ...sections[0], cols: [...keyColumns, ...sections[0].cols] };
+    else if (keyColumns.length) sections.push({ title: otherGroupTitle, cols: keyColumns });
     sections.push({
       title: otherGroupTitle,
       cols: editableColumns.filter(c => !used.has(c.name))
@@ -216,7 +230,34 @@ export default function DynamicForm({
         <div className="row">{editableColumns.map(renderField)}</div>
       )}
 
-      <div className={`d-flex gap-2 mt-4${compact ? ' client-entry-actions' : ''}`}>
+      {multiSelectFields.map(field => (
+        <fieldset key={field.name} className="border rounded p-3 mt-3">
+          <legend className="float-none w-auto px-2 fs-6 fw-semibold mb-0">{field.label}</legend>
+          <div className="row">
+            {(field.options || fieldOptions[field.name] || []).map(option => {
+              const selected = (formData[field.name] || []).map(String).includes(String(option.id));
+              return (
+                <div key={option.id} className="col-md-4 col-sm-6">
+                  <div className="form-check">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id={`${field.name}-${option.id}`}
+                      checked={selected}
+                      onChange={() => handleFieldChange(field.name, selected
+                        ? formData[field.name].filter(id => String(id) !== String(option.id))
+                        : [...(formData[field.name] || []), option.id])}
+                    />
+                    <label className="form-check-label" htmlFor={`${field.name}-${option.id}`}>{option.nombre}</label>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </fieldset>
+      ))}
+
+      <div className={`d-flex gap-2 mt-4 justify-content-end${compact ? ' client-entry-actions' : ''}`}>
         <button
           type="submit"
           className="btn btn-primary"

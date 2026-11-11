@@ -22,7 +22,7 @@ export default function ColumnSelector({ tableStructure, selectedColumns, onChan
 
   if (!tableStructure?.columns) return null;
 
-  const allColumns = tableStructure.columns.filter(col => !col.isIdentity && !col.isComputed);
+  const allColumns = tableStructure.columns.filter(col => !col.isComputed);
 
   const toggleColumn = (name) => {
     const next = selectedColumns.includes(name)

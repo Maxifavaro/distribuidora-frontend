@@ -156,6 +156,9 @@
   padding: 0.8rem 0.7rem !important;
   border-bottom: 1px solid #e7ebef;
   background: #f7f8fa;
+}
+
+.module-page .abm-grid-table thead th {
   color: #697789;
   font-size: 0.72rem;
   font-weight: 750;

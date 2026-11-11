@@ -76,8 +76,8 @@ export default function Users() {
           onSubmit={save}
           onCancel={() => setForm(null)}
         />
-      ) : <button className="btn btn-success mb-3" onClick={startCreate}>+ Asignar usuario</button>}
-      <UserList users={users} search={search} onSearch={setSearch} loading={loading} onEdit={startEdit} onRemove={remove} />
+      ) : null}
+      <UserList users={users} search={search} onSearch={setSearch} loading={loading} onEdit={startEdit} onRemove={remove} onCreate={form ? null : startCreate} />
     </div>
   );
 }

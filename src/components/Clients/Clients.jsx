@@ -38,15 +38,17 @@ const config = {
   searchLabel: 'Buscar clientes',
   createTitle: 'Crear cliente',
   createLabel: 'Nuevo cliente',
+  createEndpoint: '/clients',
   formClassName: 'client-entry-panel',
   FormHeading: ClientFormHeading,
   submitLabels: { create: 'Guardar cliente', edit: 'Guardar cambios' },
   formProps: {
     groups: [
-      { title: 'Datos del cliente', columns: ['Nombre', 'Apellido', 'RazonSocial', 'Estado'] },
+      { title: 'Datos del cliente', columns: ['Nombre', 'Apellido', 'RazonSocial'] },
       { title: 'Contacto', columns: ['Telefono', 'correo', 'sitioweb'] },
       { title: 'Dirección', columns: ['Direccion', 'Numero', 'ID_Barrio', 'ID_Localidad', 'CodigoPostal'] },
-      { title: 'Datos impositivos', columns: ['CUIT', 'IngresosBrutos', 'id_condicion', 'direccionFacturacion', 'numerofacturacion'] }
+      { title: 'Datos impositivos', columns: ['CUIT', 'IngresosBrutos', 'id_condicion', 'direccionFacturacion', 'numerofacturacion'] },
+      { title: 'Otros datos', columns: ['FechaAlta', 'LimiteCtaCte', 'ID_Empleado', 'idlista', 'CueCodigo', 'PerCodigo', 'ActivoWEB', 'Estado'] }
     ],
     compact: true,
     otherGroupTitle: 'Otros datos',

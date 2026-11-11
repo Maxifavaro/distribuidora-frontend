@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { formatDisplayValue, formatLabel, LOOKUP_COLUMNS } from '../../utils/DynamicFieldRenderer';
 import useStore from '../../store';
+import PaginationFooter from './PaginationFooter';
 
 /**
  * DynamicGrid
@@ -74,7 +75,7 @@ export default function DynamicGrid({
     return <div className="alert alert-info">Cargando datos...</div>;
   }
 
-  const allColumns = tableStructure.columns.filter(col => !col.isIdentity && !col.isComputed);
+  const allColumns = tableStructure.columns.filter(col => !col.isComputed);
   const displayColumns = visibleColumns
     ? allColumns.filter(col => visibleColumns.includes(col.name))
     : allColumns;
@@ -100,7 +101,7 @@ export default function DynamicGrid({
   return (
     <div>
       <div className="table-responsive" style={{ overflowX: 'auto' }}>
-        <table className="table table-sm table-hover align-middle" style={{ width: 'max-content', minWidth: '100%', fontSize: '13px' }}>
+        <table className="table table-sm table-hover align-middle abm-grid-table" style={{ width: 'max-content', minWidth: '100%', fontSize: '13px' }}>
           <thead className="table-light">
             <tr>
               {showActions && <th className="text-center" style={{ whiteSpace: 'nowrap', padding: '0.2rem 0.5rem' }}>Acciones</th>}
@@ -145,29 +146,13 @@ export default function DynamicGrid({
         </table>
       </div>
 
-      <div className="text-muted small text-center mt-2">
-        Mostrando {(safePage - 1) * pageSize + 1}-{Math.min(safePage * pageSize, filteredData.length)} de {filteredData.length} registros
-        {searchTerm.trim() && ` (filtrados de ${data.length} totales)`}
-      </div>
-      <div className="d-flex justify-content-center mt-2">
-        <nav>
-          <ul className="pagination pagination-sm mb-0">
-            <li className={`page-item ${safePage === 1 ? 'disabled' : ''}`}>
-              <button className="page-link" onClick={() => setCurrentPage(safePage - 1)} disabled={safePage === 1}>
-                Anterior
-              </button>
-            </li>
-            <li className="page-item disabled">
-              <span className="page-link">Página {safePage} de {totalPages}</span>
-            </li>
-            <li className={`page-item ${safePage === totalPages ? 'disabled' : ''}`}>
-              <button className="page-link" onClick={() => setCurrentPage(safePage + 1)} disabled={safePage === totalPages}>
-                Siguiente
-              </button>
-            </li>
-          </ul>
-        </nav>
-      </div>
+      <PaginationFooter
+        page={safePage}
+        pageSize={pageSize}
+        total={filteredData.length}
+        filteredFrom={searchTerm.trim() ? data.length : null}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }
